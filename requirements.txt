@@ -1,6 +1,7 @@
-Flask
-tweepy
-transformers
-schedule
-email-validator
-Flask-SQLAlchemy
+Flask==2.0.3
+python-dotenv==0.19.2
+tweepy==4.4.0
+schedule==1.1.0
+transformers==4.9.2
+email-validator==1.1.3
+SQLAlchemy==1.4.22
