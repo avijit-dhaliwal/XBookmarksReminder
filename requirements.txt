@@ -1,0 +1,6 @@
+Flask
+tweepy
+transformers
+schedule
+email-validator
+Flask-SQLAlchemy
