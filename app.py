@@ -1,25 +1,32 @@
-from flask import Flask, redirect, url_for, session, request, render_template
-import tweepy
+# xbookmarks/app_web.py
+from flask import Flask, redirect, url_for, session, render_template, request
+from dotenv import load_dotenv
 import os
-from transformers import pipeline
-from email_validator import validate_email, EmailNotValidError
-import smtplib
-from email.mime.text import MIMEText
+import tweepy
+from threading import Thread
 import schedule
 import time
-from threading import Thread
+from email_validator import validate_email, EmailNotValidError
+from email.mime.text import MIMEText
+import smtplib
 from flask_sqlalchemy import SQLAlchemy
+from transformers import pipeline
+import boto3
+
+# Load environment variables
+load_dotenv()
 
 app = Flask(__name__)
-app.secret_key = os.urandom(24)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.db'
+app.secret_key = os.getenv('SECRET_KEY')
+app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URI')
 db = SQLAlchemy(app)
 
-API_KEY = ''
-API_SECRET_KEY = ''
-CALLBACK_URL = ''
-
-auth = tweepy.OAuth1UserHandler(API_KEY, API_SECRET_KEY, CALLBACK_URL)
+# Twitter OAuth setup
+auth = tweepy.OAuth1UserHandler(
+    os.getenv('TWITTER_CONSUMER_KEY'),
+    os.getenv('TWITTER_CONSUMER_SECRET'),
+    os.getenv('TWITTER_CALLBACK_URL')
+)
 
 summarizer = pipeline("summarization")
 
@@ -112,17 +119,28 @@ def summarize_text(text):
     return summary[0]['summary_text']
 
 def send_email(to_email, subject, body):
-    from_email = "your_email@example.com"
-    password = "your_email_password"
+    from_email = os.getenv('EMAIL_USER')
+    password = os.getenv('EMAIL_PASSWORD')
 
     msg = MIMEText(body)
     msg['Subject'] = subject
     msg['From'] = from_email
     msg['To'] = to_email
 
-    with smtplib.SMTP_SSL('smtp.example.com', 465) as server:
-        server.login(from_email, password)
-        server.sendmail(from_email, to_email, msg.as_string())
+    ses_client = boto3.client('ses', region_name='us-east-1')
+
+    try:
+        response = ses_client.send_email(
+            Source=from_email,
+            Destination={'ToAddresses': [to_email]},
+            Message={
+                'Subject': {'Data': subject},
+                'Body': {'Text': {'Data': body}}
+            }
+        )
+        print(f"Email sent successfully to {to_email}")
+    except Exception as e:
+        print(f"Email sending failed: {str(e)}")
 
 def check_unopened_bookmarks():
     users = User.query.all()
